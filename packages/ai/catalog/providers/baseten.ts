@@ -1,4 +1,4 @@
-import type { OpenAICompletionsCompat, ThinkingLevelMap } from "../../src/types.ts";
+import type { ClassifierModel, OpenAICompletionsCompat, ThinkingLevelMap } from "../../src/types.ts";
 import { defineProvider, modelsDevModels } from "../define.ts";
 import { getEffortThinkingLevelMap } from "../reasoning.ts";
 
@@ -50,12 +50,37 @@ const GLM_52_LEVELS: ThinkingLevelMap = {
 };
 const GLM_52_MODEL_IDS = new Set(["zai-org/GLM-5.2", "zai-org/GLM-5.2-Fast"]);
 
+const BASE_URL = "https://inference.baseten.co/v1";
+
+function classifier(id: string, name: string, input: number): ClassifierModel<"typesafe-system-one"> {
+	return {
+		type: "classifier",
+		id,
+		name,
+		api: "typesafe-system-one",
+		provider: "baseten",
+		baseUrl: BASE_URL,
+		input: ["text"],
+		cost: { input, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 16384,
+	};
+}
+
+// Base Labs decision models on Qwen3.5, served with TypeSafe's System One protocol at
+// /v1/systemone. models.dev's v1 decision list does not carry them, so they are listed here.
+// IDs and prices from models.dev's v2 baseten entries. models.dev also lists image input, which
+// is not verified on Baseten's endpoint, so they are text-only here.
+const CLASSIFIER_MODELS = [
+	classifier("decision-models/baseten-elephant-9b-latest", "Elephant 1", 0.035),
+	classifier("decision-models/baseten-mammoth-27b-latest", "Mammoth 1", 0.1),
+];
+
 export default defineProvider({
 	id: "baseten",
 	models: (ctx) =>
 		modelsDevModels(ctx, "baseten", {
 			api: "openai-completions",
-			baseUrl: "https://inference.baseten.co/v1",
+			baseUrl: BASE_URL,
 			skipDeprecated: true,
 			recordReasoning: false,
 			map: (model, source) => {
@@ -85,5 +110,6 @@ export default defineProvider({
 				};
 			},
 		}),
+	classifiers: () => CLASSIFIER_MODELS,
 	compat: { "openai-completions": { supportsStrictMode: true } },
 });
